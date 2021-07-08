@@ -75,13 +75,23 @@ type halfClosable interface {
 }
 
 var _ halfClosable = (*net.TCPConn)(nil)
+var globalHij *http.Hijacker
 
 func (proxy *ProxyHttpServer) handleHttps(w http.ResponseWriter, r *http.Request) {
 	ctx := &ProxyCtx{Req: r, Session: atomic.AddInt64(&proxy.sess, 1), Proxy: proxy, certStore: proxy.CertStore}
 
-	hij, ok := w.(http.Hijacker)
-	if !ok {
-		panic("httpserver does not support hijacking")
+	var hij http.Hijacker
+
+	if globalHij != nil {
+		hij = *globalHij
+	}else {
+		currentHij, ok := w.(http.Hijacker)
+
+		if !ok {
+			panic("httpserver does not support hijacking")
+		}
+
+		hij = currentHij
 	}
 
 	proxyClient, _, e := hij.Hijack()
